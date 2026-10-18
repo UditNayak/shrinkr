@@ -211,6 +211,31 @@
         },
         "overrides": []
       }
+    },
+    {
+      "id": 7,
+      "type": "logs",
+      "title": "App logs",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 24
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{namespace=\"shrinkr\", container=~\"app|worker\"} != \"/healthz\" != \"/metrics\""
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "sortOrder": "Descending"
+      }
     }
   ]
 }
