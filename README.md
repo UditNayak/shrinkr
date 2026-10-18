@@ -25,7 +25,7 @@ The app is at http://localhost:8000 and the API docs at http://localhost:8000/do
 The tools (kind, kubectl, helm) run in a container, so only Docker is needed. One-time setup:
 
 ```bash
-./toolbox/run.sh k8s/up.sh       # cluster, database secret, Argo CD and its Applications
+./toolbox/run.sh k8s/up.sh       # cluster, database secret, Argo CD, Argo Rollouts, Applications
 ```
 
 From then on Argo CD deploys from git: a push to `devops-improvements` is tested and built
@@ -36,6 +36,10 @@ The app is at http://localhost.
 |---|---|
 | `k8s/databases/` | PostgreSQL and Redis StatefulSets (Application `databases`) |
 | `charts/shrinkr/` | App, worker and a migration Job run before each sync (Application `shrinkr`) |
+
+The app is an Argo Rollouts `Rollout` with a canary: a new version first replaces 1 of the 2
+app pods, then waits. In the Argo CD UI, open the `app` Rollout and use the menu to run
+`resume` (replace the other pod too) or `abort` (go back to the old version).
 
 ```bash
 ./toolbox/run.sh kubectl -n argocd get applications     # sync and health status

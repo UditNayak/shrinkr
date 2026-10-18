@@ -21,6 +21,11 @@ kubectl apply -n argocd --server-side --force-conflicts \
   -f https://raw.githubusercontent.com/argoproj/argo-cd/v3.5.5/manifests/install.yaml
 kubectl wait --for condition=established crd/applications.argoproj.io
 
+# Argo Rollouts runs the canary for the app; installed before shrinkr uses a Rollout
+kubectl apply -n argo-rollouts --server-side --force-conflicts \
+  -f https://raw.githubusercontent.com/argoproj/argo-rollouts/v1.10.1/manifests/install.yaml
+kubectl wait --for condition=established crd/rollouts.argoproj.io
+
 # the Applications tell Argo CD what to deploy from the repository
 kubectl apply -f k8s/argocd/
 

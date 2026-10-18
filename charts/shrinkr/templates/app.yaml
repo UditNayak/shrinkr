@@ -1,9 +1,16 @@
-apiVersion: apps/v1
-kind: Deployment
+# a Rollout is a Deployment with a canary: Argo Rollouts moves 1 of 2 pods to the
+# new version first and waits for a promote (or abort) before replacing the other
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
 metadata:
   name: app
 spec:
   replicas: {{ .Values.app.replicas }}
+  strategy:
+    canary:
+      steps:
+        - setWeight: 50
+        - pause: {}
   selector:
     matchLabels:
       app: shrinkr
