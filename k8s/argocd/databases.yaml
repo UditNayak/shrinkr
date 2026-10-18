@@ -1,0 +1,18 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: databases
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/UditNayak/shrinkr.git
+    targetRevision: devops-improvements
+    path: k8s/databases
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: shrinkr
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

@@ -1,6 +1,7 @@
 image:
-  repository: shrinkr
-  tag: dev
+  repository: ghcr.io/uditnayak/shrinkr
+  # set by CI to the commit it built
+  tag: 05dd58b25ec59c0454a20c9cd46958fc38bb9d66
 
 app:
   replicas: 2

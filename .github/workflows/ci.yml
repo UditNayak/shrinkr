@@ -45,7 +45,7 @@ jobs:
     # arm64, like the kind cluster on Apple Silicon
     runs-on: ubuntu-24.04-arm
     permissions:
-      contents: read
+      contents: write
       packages: write
     steps:
       - uses: actions/checkout@v7
@@ -61,3 +61,14 @@ jobs:
           # tagged with the commit, so every image traces back to its code
           tags: ghcr.io/uditnayak/shrinkr:${{ github.sha }}
           labels: org.opencontainers.image.revision=${{ github.sha }}
+      # Argo CD deploys whatever git says, so point the chart at the new image.
+      # [skip ci] stops this commit from starting the pipeline again.
+      - name: Update image tag
+        run: |
+          sed -i "s/^  tag: .*/  tag: ${GITHUB_SHA}/" charts/shrinkr/values.yaml
+          # nothing to do if this commit is already deployed (e.g. a re-run)
+          git diff --quiet && exit 0
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "Deploy ${GITHUB_SHA::7} [skip ci]"
+          git push origin "HEAD:${GITHUB_REF_NAME}"

@@ -1,20 +1,15 @@
 #!/bin/sh
-# Create the kind cluster if needed and deploy shrinkr. Run in the toolbox:
-#   ./toolbox/run.sh k8s/up.sh
+# Set up the kind cluster and Argo CD; Argo CD then deploys shrinkr from git.
+# Run in the toolbox:  ./toolbox/run.sh k8s/up.sh
 set -e
 
 kind get clusters | grep -q shrinkr || kind create cluster --config k8s/kind-cluster.yaml
 # use the cluster's internal address, reachable from the toolbox
 kind export kubeconfig --name shrinkr --internal
 
-# a new tag for every build, so Kubernetes sees a change and rolls out the new image
-tag=$(date +%Y%m%d%H%M%S)
-docker build -t shrinkr:$tag .
-kind load docker-image shrinkr:$tag --name shrinkr
-
 kubectl apply -f k8s/namespace.yaml
 
-# random password, created once and kept only in the cluster
+# random password, created once and kept only in the cluster (not in git)
 if ! kubectl -n shrinkr get secret shrinkr-db >/dev/null 2>&1; then
   password=$(openssl rand -hex 16)
   kubectl -n shrinkr create secret generic shrinkr-db \
@@ -22,10 +17,11 @@ if ! kubectl -n shrinkr get secret shrinkr-db >/dev/null 2>&1; then
     --from-literal=DATABASE_URL="postgresql+psycopg://shrinkr:$password@postgres:5432/shrinkr"
 fi
 
-kubectl apply -f k8s/postgres.yaml -f k8s/redis.yaml
-kubectl -n shrinkr rollout status statefulset/postgres
+kubectl apply -n argocd --server-side --force-conflicts \
+  -f https://raw.githubusercontent.com/argoproj/argo-cd/v3.5.5/manifests/install.yaml
+kubectl wait --for condition=established crd/applications.argoproj.io
 
-# migrations run first (a Helm hook); --wait returns when the new pods are ready
-helm upgrade --install shrinkr charts/shrinkr -n shrinkr --set image.tag=$tag --wait
+# the Applications tell Argo CD what to deploy from the repository
+kubectl apply -f k8s/argocd/
 
-echo "shrinkr is running at http://localhost"
+echo "Argo CD is deploying shrinkr. Check with: kubectl -n argocd get applications"
