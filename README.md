@@ -42,6 +42,12 @@ app pods, then waits. In the Argo CD UI, open the `app` Rollout and use the menu
 `resume` (replace the other pod too) or `abort` (go back to the old version).
 
 ```bash
+./toolbox/rollouts.sh get rollout app -n shrinkr --watch     # canary progress in the terminal
+./toolbox/rollouts.sh promote app -n shrinkr                 # or: abort app -n shrinkr
+./toolbox/rollouts.sh dashboard                              # web UI at http://localhost:3100
+```
+
+```bash
 ./toolbox/run.sh kubectl -n argocd get applications     # sync and health status
 ./toolbox/argocd-ui.sh                                  # web UI at https://localhost:8080
 ./toolbox/run.sh kind delete cluster --name shrinkr     # remove everything
