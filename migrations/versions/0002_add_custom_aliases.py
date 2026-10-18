@@ -15,14 +15,11 @@ depends_on = None
 
 
 def upgrade():
-    # batch_alter_table: a plain ALTER on PostgreSQL; a table rebuild on SQLite (tests),
-    # which cannot change a column's type in place.
+    # batch mode lets SQLite (used in tests) change the column type
     with op.batch_alter_table("links") as batch:
-        # The server default fills existing rows, so adding a NOT NULL column is safe.
         batch.add_column(
             sa.Column("is_custom", sa.Boolean(), server_default=sa.false(), nullable=False)
         )
-        # Aliases can be up to 32 characters (random codes are 7).
         batch.alter_column(
             "code",
             existing_type=sa.String(16),
@@ -32,7 +29,7 @@ def upgrade():
 
 
 def downgrade():
-    # Fails if any alias is longer than 16 characters: delete or shorten those first.
+    # fails if any alias is longer than 16 characters
     with op.batch_alter_table("links") as batch:
         batch.alter_column(
             "code",

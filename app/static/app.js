@@ -1,16 +1,11 @@
-// shrinkr web UI: plain JavaScript, no framework, no build step.
-// Security rule for this file: user-controlled text is only ever inserted with textContent
-// (or as attribute values), never as HTML. The page's Content-Security-Policy blocks inline
-// scripts as a second line of defence.
-
 "use strict";
 
-const STORAGE_KEY = "shrinkr.links"; // [{code, short_url, target_url, token, created_at}]
-const MAX_LIST_REFRESH = 10; // live status for the newest 10 links (rate limit: 60/min)
-const STATS_DAYS = 90; // fetched once; the 7 / 30 / 90-day views are slices of it
-const $ = (selector) => document.querySelector(selector);
+// User data is only ever inserted with textContent, never as HTML.
 
-// --- small helpers ------------------------------------------------------------------
+const STORAGE_KEY = "shrinkr.links";
+const MAX_LIST_REFRESH = 10;
+const STATS_DAYS = 90;
+const $ = (selector) => document.querySelector(selector);
 
 function el(tag, attrs = {}, ...children) {
   const node = document.createElement(tag);
@@ -37,7 +32,6 @@ function formatDateTime(iso) {
   return iso ? new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "Never";
 }
 
-// Stats days are UTC dates ("2026-10-18"), so format them in UTC too.
 function formatDay(isoDay, options = { month: "short", day: "numeric" }) {
   return new Date(`${isoDay}T00:00:00Z`).toLocaleDateString(undefined, { ...options, timeZone: "UTC" });
 }
@@ -51,12 +45,10 @@ function sum(days) {
 }
 
 function expiryFromNow(seconds) {
-  // toISOString() is UTC with a "Z" suffix, so the server knows the timezone.
   return new Date(Date.now() + Number(seconds) * 1000).toISOString();
 }
 
 function withScheme(url) {
-  // "example.com/page" → "https://example.com/page"
   return /^[a-z][a-z0-9+.-]*:\/\//i.test(url) ? url : `https://${url}`;
 }
 
@@ -78,18 +70,17 @@ async function copyText(text, button) {
     await navigator.clipboard.writeText(text);
     button.textContent = "Copied!";
   } catch {
-    button.textContent = "Copy failed"; // the clipboard API needs https (or localhost)
+    button.textContent = "Copy failed";
   }
   setTimeout(() => { button.textContent = label; }, 1500);
 }
 
-// --- storage: the browser remembers the user's links and their tokens -----------------
-
+// Links and their tokens live in localStorage, there are no accounts.
 function loadLinks() {
   try {
     return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
   } catch {
-    return []; // private mode, blocked storage or corrupted data
+    return [];
   }
 }
 
@@ -97,7 +88,6 @@ function saveLinks(links) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(links));
   } catch {
-    // Storage unavailable: the page still works, it just won't remember links.
   }
 }
 
@@ -108,8 +98,6 @@ function rememberLink(link) {
 function forgetLink(code) {
   saveLinks(loadLinks().filter((saved) => saved.code !== code));
 }
-
-// --- API ---------------------------------------------------------------------------
 
 class ApiError extends Error {
   constructor(message, status) {
@@ -141,12 +129,10 @@ function errorMessage(response, data) {
     return `Too many requests. Please try again in ${wait || "a few"} seconds.`;
   }
   const detail = data && data.detail;
-  if (typeof detail === "string") return detail; // e.g. 409 "Alias 'x' is already taken"
-  if (Array.isArray(detail) && detail.length) return detail[0].msg; // 422 validation errors
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail) && detail.length) return detail[0].msg;
   return `Something went wrong (HTTP ${response.status}).`;
 }
-
-// --- create ------------------------------------------------------------------------
 
 $("#create-form").addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -208,8 +194,6 @@ function showResult(link) {
   section.scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 
-// --- your links --------------------------------------------------------------------
-
 function renderLinks() {
   const links = loadLinks();
   const list = $("#links-list");
@@ -253,7 +237,7 @@ async function refreshListItem(link, meta) {
 
 $("#import-form").addEventListener("submit", async (event) => {
   event.preventDefault();
-  const form = event.currentTarget; // currentTarget is null again after the first await
+  const form = event.currentTarget; // read before any await
   const error = $("#import-error");
   showMessage(error, "");
   const code = $("#import-code").value.trim();
@@ -263,7 +247,7 @@ $("#import-form").addEventListener("submit", async (event) => {
     return;
   }
   try {
-    const details = await api(linkPath(code), { token }); // proves the token is right
+    const details = await api(linkPath(code), { token });
     rememberLink({ code: details.code, short_url: details.short_url, target_url: details.target_url, token, created_at: details.created_at });
     form.reset();
     renderLinks();
@@ -272,10 +256,8 @@ $("#import-form").addEventListener("submit", async (event) => {
   }
 });
 
-// --- manage dialog -----------------------------------------------------------------
-
 const dialog = $("#manage");
-let current = null; // { link: stored entry, details, daily: last STATS_DAYS days }
+let current = null;
 let chartDays = 30;
 
 async function openManage(code) {
@@ -320,8 +302,6 @@ async function refreshManage() {
   }
 }
 
-// --- clicks: summary tiles, chart, table ---------------------------------------------
-
 function showSummary(total, daily) {
   const week = sum(daily.slice(-7));
   const previousWeek = sum(daily.slice(-14, -7));
@@ -348,7 +328,6 @@ function showChart() {
   const days = current.daily.slice(-chartDays);
   drawChart($("#chart"), days);
   $("#chart-empty").hidden = sum(days) > 0;
-  // Table view: the same numbers without hovering, newest first.
   $("#day-rows").replaceChildren(
     ...[...days].reverse().map((day) =>
       el("tr", {}, el("td", { text: formatDay(day.day, { weekday: "short", month: "short", day: "numeric" }) }), el("td", { text: day.clicks.toLocaleString() })),
@@ -356,8 +335,8 @@ function showChart() {
   );
 }
 
+// Round axis steps: 1, 2 or 5 times a power of ten.
 function niceTicks(max) {
-  // 0 plus 2-4 round steps (1, 2, 5 × 10^n) covering max, e.g. 0 / 5 / 10 / 15.
   if (max <= 0) return [0, 1];
   const raw = max / 3;
   const magnitude = 10 ** Math.floor(Math.log10(raw));
@@ -375,7 +354,7 @@ function drawChart(container, days) {
   const yMax = ticks[ticks.length - 1];
   const y = (value) => top + plotH - (plotH * value) / yMax;
   const slot = plotW / days.length;
-  const barW = Math.max(2, Math.min(24, slot - 2)); // thin bars, a 2px gap between them
+  const barW = Math.max(2, Math.min(24, slot - 2));
 
   const node = (tag, attrs, text) => {
     const n = document.createElementNS(SVG, tag);
@@ -385,13 +364,11 @@ function drawChart(container, days) {
   };
   const svg = node("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": `Clicks per day over ${days.length} days, ${plural(sum(days), "click")} in total` });
 
-  // Recessive y gridlines with round-number labels.
   for (const t of ticks) {
     svg.append(node("line", { class: t === 0 ? "baseline" : "grid", x1: left, x2: W - right, y1: y(t), y2: y(t) }));
     svg.append(node("text", { x: left - 8, y: y(t) + 4, "text-anchor": "end" }, t.toLocaleString()));
   }
 
-  // X labels: a few dates, not every one (each day for 7, about weekly for 30, ~fortnightly for 90).
   const every = days.length <= 7 ? 1 : days.length <= 30 ? 7 : 15;
   const peak = days.reduce((best, d, i) => (d.clicks > days[best].clicks ? i : best), 0);
   const tip = $("#chart-tip");
@@ -402,7 +379,6 @@ function drawChart(container, days) {
       const label = days.length <= 7 ? formatDay(day.day, { weekday: "short" }) : formatDay(day.day);
       svg.append(node("text", { x: cx, y: H - 6, "text-anchor": "middle" }, label));
     }
-    // Hit area: the whole column, much bigger than the bar, and keyboard-focusable.
     const text = `${plural(day.clicks, "click")} · ${formatDay(day.day, { weekday: "short", month: "short", day: "numeric" })}`;
     const hit = node("rect", { class: "hit", x: left + slot * i, y: top, width: slot, height: plotH, tabindex: 0, "aria-label": text });
     svg.append(hit);
@@ -412,7 +388,6 @@ function drawChart(container, days) {
     const show = () => {
       tip.replaceChildren(el("strong", { text: day.clicks.toLocaleString() }), text.split(" · ")[1]);
       tip.style.left = `${(100 * cx) / W}%`;
-      // Near an edge, anchor the tooltip on that side so it never runs out of the dialog.
       tip.classList.toggle("edge-right", cx / W > 0.8);
       tip.classList.toggle("edge-left", cx / W < 0.2);
       tip.style.top = `${(100 * y(day.clicks)) / H}%`;
@@ -429,15 +404,14 @@ function drawChart(container, days) {
     hit.addEventListener("blur", hide);
   });
 
-  // One direct label: the busiest day's value.
   if (days[peak].clicks > 0) {
     svg.append(node("text", { class: "peak", x: left + slot * peak + slot / 2, y: y(days[peak].clicks) - 5, "text-anchor": "middle" }, days[peak].clicks.toLocaleString()));
   }
   container.replaceChildren(svg);
 }
 
+// Rounded top corners, square bottom.
 function columnPath(x, y, width, height) {
-  // A column with 4px rounded top corners and a square bottom on the baseline.
   const r = Math.min(4, width / 2, height);
   return `M${x},${y + height} V${y + r} Q${x},${y} ${x + r},${y} H${x + width - r} Q${x + width},${y} ${x + width},${y + r} V${y + height} Z`;
 }
@@ -449,12 +423,12 @@ $("#edit-form").addEventListener("submit", async (event) => {
   showMessage($("#manage-error"), "");
   showMessage($("#manage-ok"), "");
 
-  // Send only what changed: PATCH leaves the other fields alone.
+  // Send only what changed.
   const changes = {};
   const url = $("#edit-url").value.trim();
   if (url && url !== details.target_url) changes.url = withScheme(url);
   const maxRaw = $("#edit-max-clicks").value;
-  const maxClicks = maxRaw === "" ? null : Number(maxRaw); // empty = unlimited
+  const maxClicks = maxRaw === "" ? null : Number(maxRaw);
   if (maxClicks !== details.max_clicks) changes.max_clicks = maxClicks;
   const expiry = $("#edit-expires").value;
   if (expiry === "never") changes.expires_at = null;

@@ -1,5 +1,3 @@
-/* shrinkr web UI. Colours are tokens, redefined for dark mode. */
-
 :root {
   --bg: #f7f7f5;
   --surface: #ffffff;
@@ -13,12 +11,13 @@
   --error: #b42323;
   --error-soft: #fbeaea;
   --code-bg: #f1f1ee;
-  --chart-bar: #2f5bd3; /* validated: lightness band + 3:1 contrast on the light surface */
+  --chart-bar: #2f5bd3;
   --grid: #ebebe7;
   --radius: 10px;
   color-scheme: light;
 }
 
+/* Dark mode */
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #131518;
@@ -33,7 +32,7 @@
     --error: #f08a8a;
     --error-soft: #3a2020;
     --code-bg: #24282d;
-    --chart-bar: #6589e8; /* validated on the dark surface (#7c9cf0 failed the lightness band) */
+    --chart-bar: #6589e8;
     --grid: #2a2e33;
     color-scheme: dark;
   }
@@ -63,14 +62,12 @@ code { background: var(--code-bg); padding: 0.15rem 0.4rem; border-radius: 6px; 
 .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 
-/* --- header ------------------------------------------------------------- */
 .site-header {
   max-width: 760px; margin: 0 auto; padding: 18px 16px;
   display: flex; justify-content: space-between; align-items: center;
 }
 .brand { font-weight: 800; font-size: 1.2rem; color: var(--ink); text-decoration: none; letter-spacing: -0.02em; }
 
-/* --- building blocks ---------------------------------------------------- */
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; }
 .row { display: flex; gap: 8px; align-items: center; }
 .row > input { flex: 1; min-width: 0; }
@@ -81,7 +78,7 @@ label { display: flex; flex-direction: column; gap: 4px; font-size: 0.85rem; col
 input, select {
   font: inherit; color: var(--ink); background: var(--surface);
   border: 1px solid var(--line); border-radius: 8px; padding: 0 12px; width: 100%;
-  height: 44px; /* one height for inputs and selects, so a row of them lines up */
+  height: 44px;
 }
 input:focus, select:focus, button:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
@@ -104,7 +101,6 @@ details.options { margin-top: 14px; }
 details.options summary { cursor: pointer; color: var(--muted); font-size: 0.9rem; }
 details.options[open] summary { margin-bottom: 12px; }
 
-/* --- create + result ---------------------------------------------------- */
 .hero { padding: 32px 0 24px; }
 .hero > p { margin: 0 0 20px; }
 #url { font-size: 1.05rem; height: 50px; padding: 0 14px; }
@@ -118,10 +114,8 @@ details.options[open] summary { margin-bottom: 12px; }
 .qr img { display: block; width: 168px; height: 168px; border-radius: 8px; background: #fff; }
 .qr figcaption { margin-top: 6px; color: var(--muted); }
 
-/* --- your links --------------------------------------------------------- */
 .section-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 12px; }
-/* minmax(0, 1fr): grid items otherwise refuse to shrink below their content (a long URL),
-   which pushed rows wider than the page instead of truncating the text. */
+/* minmax(0, 1fr) lets long URLs truncate instead of widening the row */
 .links { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
 .links li {
   display: flex; align-items: center; gap: 12px;
@@ -134,7 +128,6 @@ details.options[open] summary { margin-bottom: 12px; }
 .badge.on { background: var(--accent-soft); color: var(--accent); }
 .badge.off { background: var(--error-soft); color: var(--error); }
 
-/* --- manage dialog ------------------------------------------------------ */
 dialog {
   width: min(720px, calc(100vw - 32px)); max-height: calc(100vh - 32px);
   border: 1px solid var(--line); border-radius: 14px; padding: 22px;
@@ -164,7 +157,7 @@ dialog::backdrop { background: rgb(0 0 0 / 45%); }
 
 .chart-wrap { position: relative; }
 .chart svg { width: 100%; height: auto; display: block; overflow: visible; }
-/* Bars ignore the pointer, so the bigger per-day hit area underneath always receives it. */
+/* bars ignore the pointer so the wider hit area gets hover */
 .chart .bar { fill: var(--chart-bar); pointer-events: none; }
 .chart .bar.active { opacity: 0.7; }
 .chart .hit { fill: transparent; outline: none; }
@@ -188,18 +181,16 @@ dialog::backdrop { background: rgb(0 0 0 / 45%); }
 
 .danger-zone { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--line); }
 
-/* --- error pages (expired / disabled / not found) ------------------------ */
 .error-page { max-width: 520px; padding-top: 18vh; text-align: center; }
 .error-page .brand { display: inline-block; margin-bottom: 24px; }
 .error-page p { margin-bottom: 28px; }
 
-/* --- small screens ------------------------------------------------------ */
 @media (max-width: 640px) {
   h1 { font-size: 1.75rem; }
   .result { flex-direction: column-reverse; align-items: center; }
   .result-main { width: 100%; }
   .tile strong { font-size: 1.3rem; }
   .links li { flex-wrap: wrap; }
-  .links .link-text { flex-basis: 100%; } /* link on its own line, then count + buttons */
+  .links .link-text { flex-basis: 100%; }
   .links .link-meta { flex: 1; }
 }

@@ -16,11 +16,9 @@ depends_on = None
 
 def upgrade():
     with op.batch_alter_table("links") as batch:
-        # The server default fills existing rows: every existing link starts enabled.
         batch.add_column(
             sa.Column("is_disabled", sa.Boolean(), server_default=sa.false(), nullable=False)
         )
-        # Existing links get NULL: they have no token, so they can't be managed via the API.
         batch.add_column(sa.Column("token_hash", sa.String(64), nullable=True))
 
 

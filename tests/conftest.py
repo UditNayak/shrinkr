@@ -1,8 +1,7 @@
 import os
 import tempfile
 
-# Must be set before the app is imported: the database engine is created at import time.
-# Tests use a throwaway SQLite file unless TEST_DATABASE_URL points at a real Postgres.
+# Set before importing the app: the engine is created at import time.
 os.environ["DATABASE_URL"] = os.getenv(
     "TEST_DATABASE_URL", f"sqlite:///{tempfile.mkdtemp()}/test.db"
 )
@@ -24,7 +23,6 @@ def alembic_config():
 
 @pytest.fixture(scope="session", autouse=True)
 def migrated_database(alembic_config):
-    # Build the schema exactly the way production does: by running the migrations.
     command.upgrade(alembic_config, "head")
 
 
@@ -36,10 +34,6 @@ def client():
 
 @pytest.fixture(autouse=True)
 def fake_redis(monkeypatch):
-    """Every test gets its own empty in-memory Redis, so counters never leak between tests.
-
-    Returns the fake *server*: set `.connected = False` on it to simulate Redis being down.
-    """
     server = fakeredis.FakeServer()
     monkeypatch.setattr(redis_conn, "redis_client", fakeredis.FakeRedis(server=server, decode_responses=True))
     return server

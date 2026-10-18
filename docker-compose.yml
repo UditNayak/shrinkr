@@ -14,8 +14,7 @@ services:
 
   redis:
     image: redis:8-alpine
-    # Append-only file: every write is logged to disk (flushed each second), so queued
-    # click events survive a Redis restart.
+    # append-only file keeps queued clicks across restarts
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
       - redisdata:/data

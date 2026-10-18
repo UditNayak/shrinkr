@@ -21,17 +21,16 @@ def test_counts_and_acknowledges_clicks(client):
 
     assert run_worker() == 5
     assert (stats(client, a)["clicks"], stats(client, b)["clicks"]) == (3, 2)
-    assert redis().xlen(events.STREAM) == 0  # counted events are removed
+    assert redis().xlen(events.STREAM) == 0
 
 
 def test_takes_over_a_crashed_workers_clicks(client):
     link = create(client)
     queue_clicks(link["code"], 3)
     worker.ensure_group(redis())
-    # Worker A receives the events, then "crashes" before acknowledging them.
+    # worker-a reads the events and "crashes" before acknowledging them
     redis().xreadgroup(worker.GROUP, "worker-a", {events.STREAM: ">"}, count=10)
 
-    # Worker B claims them (idle threshold 0 instead of 60 s) and counts them.
     assert worker.process_batch(redis(), "worker-b", block_ms=None, claim_idle_ms=0) == 3
     assert stats(client, link)["clicks"] == 3
 
@@ -44,11 +43,10 @@ def test_database_failure_loses_no_clicks(client, monkeypatch):
     def broken_session():
         raise OperationalError("UPDATE", {}, Exception("database is down"))
 
-    with monkeypatch.context() as patch:  # the database is broken only inside this block
+    with monkeypatch.context() as patch:
         patch.setattr(worker, "SessionLocal", broken_session)
         with pytest.raises(OperationalError):
             worker.process_batch(redis(), "worker-a", block_ms=None)
 
-    # Not acknowledged, so a retry counts them.
     assert worker.process_batch(redis(), "worker-b", block_ms=None, claim_idle_ms=0) == 2
     assert stats(client, link)["clicks"] == 2

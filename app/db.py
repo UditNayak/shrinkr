@@ -6,23 +6,23 @@ from sqlalchemy.orm import DeclarativeBase, sessionmaker
 DATABASE_URL = os.getenv(
     "DATABASE_URL", "postgresql+psycopg://shrinkr:shrinkr@localhost:5432/shrinkr"
 )
+IS_SQLITE = DATABASE_URL.startswith("sqlite")
 
-# SQLite (used by the tests) refuses connections shared across threads unless told otherwise.
-connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
-
+# SQLite is only used by the tests
+connect_args = {"check_same_thread": False} if IS_SQLITE else {}
 engine = create_engine(DATABASE_URL, pool_pre_ping=True, connect_args=connect_args)
 
-if DATABASE_URL.startswith("sqlite"):
-    # SQLite ignores foreign keys (and ON DELETE CASCADE) unless switched on per connection.
+if IS_SQLITE:
+    # SQLite ignores foreign keys unless enabled per connection.
     @event.listens_for(engine, "connect")
-    def _enable_sqlite_foreign_keys(dbapi_connection, _connection_record):
+    def _enable_foreign_keys(dbapi_connection, _record):
         dbapi_connection.execute("PRAGMA foreign_keys = ON")
 
 SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
 
 
 class Base(DeclarativeBase):
-    # Predictable constraint names (e.g. uq_links_code) so migrations can refer to them.
+    # fixed constraint names so migrations can refer to them
     metadata = MetaData(
         naming_convention={
             "ix": "ix_%(table_name)s_%(column_0_name)s",

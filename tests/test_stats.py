@@ -25,14 +25,14 @@ def test_clicks_per_day(client):
 
     stats = get_stats(client, link, days=7)
     assert stats["total_clicks"] == 3
-    assert len(stats["daily"]) == 7  # one entry per day, oldest first, zero-filled
+    assert len(stats["daily"]) == 7
     assert stats["daily"][-1] == {"day": datetime.now(UTC).date().isoformat(), "clicks": 3}
     assert sum(day["clicks"] for day in stats["daily"]) == 3
 
 
 def test_click_limited_links_are_counted_once(client):
     link = create(client, max_clicks=10)
-    follow(client, link["code"])  # counted in the database now; the event only adds the day
+    follow(client, link["code"])
     run_worker()
     stats = get_stats(client, link)
     assert stats["total_clicks"] == 1 and stats["daily"][-1]["clicks"] == 1
@@ -48,4 +48,4 @@ def test_deleting_a_link_deletes_its_stats(client):
 
     with SessionLocal() as session:
         rows = session.scalar(select(func.count()).select_from(DailyClicks).where(DailyClicks.link_id == link_id))
-    assert rows == 0  # ON DELETE CASCADE
+    assert rows == 0

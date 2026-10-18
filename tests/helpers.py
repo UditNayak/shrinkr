@@ -1,5 +1,3 @@
-"""Shared helpers for the tests."""
-
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import update
@@ -13,7 +11,6 @@ def in_future(**delta):
 
 
 def expire_now(code):
-    """Move a link's expiry into the past (the API only accepts future expiry times)."""
     with SessionLocal() as session:
         session.execute(
             update(Link).where(Link.code == code).values(expires_at=datetime.now(UTC) - timedelta(minutes=1))
@@ -28,7 +25,6 @@ def create(client, url="https://example.com/some/long/path", **extra):
 
 
 def stats(client, link):
-    """Owner's view of a link (needs its management token)."""
     response = client.get(f"/api/links/{link['code']}", headers=auth(link))
     assert response.status_code == 200
     return response.json()
@@ -39,7 +35,6 @@ def auth(link):
 
 
 def run_worker():
-    """Count all queued click events, as the worker would. Returns how many were processed."""
     from app import redis_conn, worker
 
     worker.ensure_group(redis_conn.redis_client)

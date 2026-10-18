@@ -11,13 +11,13 @@ def test_deletes_only_links_expired_beyond_the_grace_period():
     now = datetime.now(UTC)
     with SessionLocal() as session:
         for code, expires_at in [
-            ("cleanup-old", now - timedelta(days=30)),  # expired long ago → deleted
-            ("cleanup-recent", now - timedelta(days=1)),  # within the grace period → kept
-            ("cleanup-never", None),  # no expiry → kept
+            ("cleanup-old", now - timedelta(days=30)),
+            ("cleanup-recent", now - timedelta(days=1)),
+            ("cleanup-never", None),
         ]:
             session.add(Link(code=code, target_url="https://example.com/", expires_at=expires_at))
         session.commit()
 
-        assert purge_expired(session, grace=timedelta(days=7), batch_size=1) == 1  # batching too
+        assert purge_expired(session, grace=timedelta(days=7), batch_size=1) == 1
         remaining = set(session.scalars(select(Link.code).where(Link.code.like("cleanup-%"))))
     assert remaining == {"cleanup-recent", "cleanup-never"}

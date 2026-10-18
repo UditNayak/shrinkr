@@ -15,8 +15,6 @@ depends_on = None
 
 
 def upgrade():
-    # A new table only: nothing existing changes, so this is safe while the old app runs.
-    # The primary key starts with link_id, which doubles as the index for "stats of a link".
     op.create_table(
         "daily_clicks",
         sa.Column("link_id", sa.Integer(), nullable=False),

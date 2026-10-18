@@ -1,8 +1,8 @@
 import secrets
 import string
 
-ALPHABET = string.ascii_letters + string.digits  # 62 characters
-CODE_LENGTH = 7  # 62^7 ≈ 3.5 trillion possible codes
+ALPHABET = string.ascii_letters + string.digits
+CODE_LENGTH = 7  # 62^7, about 3.5 trillion codes
 
 
 def generate_code(length: int = CODE_LENGTH) -> str:
