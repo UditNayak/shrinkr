@@ -1,0 +1,11 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: shrinkr
+nodes:
+  - role: control-plane
+    # port 80 on the Mac goes to the app's NodePort (30080)
+    extraPortMappings:
+      - containerPort: 30080
+        hostPort: 80
+  - role: worker
+  - role: worker

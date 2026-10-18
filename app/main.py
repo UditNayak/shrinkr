@@ -94,6 +94,13 @@ def owned_link(
     return link
 
 
+# Used for both probes. It doesn't check Postgres or Redis: they're shared by every pod,
+# so failing on them would take all pods out of service at once.
+@app.get("/healthz", include_in_schema=False)
+def healthz():
+    return {"status": "ok"}
+
+
 @app.get("/", include_in_schema=False)
 def index():
     return FileResponse(STATIC_DIR / "index.html", headers=pages.PAGE_HEADERS)
