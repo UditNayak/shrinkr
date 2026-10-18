@@ -26,9 +26,16 @@ spec:
       labels:
         app: shrinkr
     spec:
+      # the app never calls the Kubernetes API, so it gets no token for it
+      automountServiceAccountToken: false
       containers:
         - name: app
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          # no extra privileges, even though it runs as root (see README)
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
           ports:
             - containerPort: 8000
           env:

@@ -9,11 +9,20 @@ metadata:
     "helm.sh/hook-delete-policy": before-hook-creation
 spec:
   template:
+    metadata:
+      # lets it through the database NetworkPolicy
+      labels:
+        app: migrate
     spec:
       restartPolicy: Never
+      automountServiceAccountToken: false
       containers:
         - name: migrate
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
           command: ["alembic", "upgrade", "head"]
           env:
             - name: DATABASE_URL

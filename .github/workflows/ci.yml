@@ -24,6 +24,12 @@ jobs:
           --health-retries 15
     steps:
       - uses: actions/checkout@v7
+        with:
+          # full history, so the secret scan sees every commit, not only the last
+          fetch-depth: 0
+      # fails if a password, token or key was ever committed
+      - name: Scan for secrets
+        run: docker run --rm --user "$(id -u):$(id -g)" -v "$PWD":/repo ghcr.io/gitleaks/gitleaks:v8.30.1 git /repo --no-banner
       - uses: actions/setup-python@v7
         with:
           python-version: "3.14"
@@ -61,6 +67,12 @@ jobs:
           # tagged with the commit, so every image traces back to its code
           tags: ghcr.io/uditnayak/shrinkr:${{ github.sha }}
           labels: org.opencontainers.image.revision=${{ github.sha }}
+      # an image with a known HIGH or CRITICAL vulnerability that has a fix is pushed
+      # but never deployed: this fails before the tag is committed
+      - name: Scan image
+        run: >-
+          docker run --rm aquasec/trivy:0.75.0 image --quiet --exit-code 1
+          --severity HIGH,CRITICAL --ignore-unfixed ghcr.io/uditnayak/shrinkr:${{ github.sha }}
       # Argo CD deploys whatever git says, so point the chart at the new image.
       # [skip ci] stops this commit from starting the pipeline again.
       - name: Update image tag

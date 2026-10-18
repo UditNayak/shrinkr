@@ -80,14 +80,32 @@ the last 5 minutes.
 The database and Grafana passwords are generated on the first setup and stored only in Secrets
 in the cluster.
 
+## Security
+
+| Area | What is in place |
+|---|---|
+| Secrets | Database and Grafana passwords are random, created by `k8s/up.sh` in the cluster and never in git. CI scans the whole git history with gitleaks |
+| Image | CI scans every image with Trivy; a fixable HIGH or CRITICAL vulnerability stops the deployment. pip is removed from the image |
+| CI permissions | The workflow token can only write to this repository and its packages; no other credentials are stored |
+| Network | NetworkPolicies let only the app, worker and migration reach PostgreSQL, and only the app and worker reach Redis |
+| Pods | App, worker and migration: no Kubernetes API token, no privilege escalation, all Linux capabilities dropped |
+| Exposure | Only the app is published (port 80). Argo CD, Grafana and the Rollouts dashboard are reached through port-forwards |
+
+Known gaps, accepted for a local project:
+
+- The containers run as root. Everything else above limits what root can do in the container.
+- `/metrics` is public on port 80. In production it would be on a separate internal port.
+- Secrets are created by a script, not stored encrypted in git (Sealed Secrets or External Secrets would do that).
+- Argo CD uses the initial admin password, and Grafana a single admin account.
+
 ## CI
 
 `.github/workflows/ci.yml` runs on every push to `main` and `devops-improvements` and on pull
 requests:
 
-- `test`: the test suite against PostgreSQL, and `helm lint`
+- `test`: a secret scan of the git history, the test suite against PostgreSQL, and `helm lint`
 - `build` (pushes only, after `test` passes): builds the image for arm64, pushes it to
-  `ghcr.io/uditnayak/shrinkr:<commit sha>`, and commits that tag to `charts/shrinkr/values.yaml`
+  `ghcr.io/uditnayak/shrinkr:<commit sha>`, scans it for vulnerabilities, and commits that tag to `charts/shrinkr/values.yaml`
   (with `[skip ci]`), which Argo CD then deploys
 
 ## Services

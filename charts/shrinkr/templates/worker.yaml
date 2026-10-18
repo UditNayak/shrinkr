@@ -12,9 +12,14 @@ spec:
       labels:
         app: worker
     spec:
+      automountServiceAccountToken: false
       containers:
         - name: worker
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
           command: ["python", "-m", "app.worker"]
           env:
             - name: REDIS_URL
