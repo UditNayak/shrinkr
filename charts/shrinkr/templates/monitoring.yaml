@@ -1,0 +1,74 @@
+# Prometheus scrapes /metrics on every app pod
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: app
+spec:
+  selector:
+    matchLabels:
+      app: shrinkr
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s
+---
+# SLOs: 99% of requests succeed, 99% of redirects take under 250ms.
+# Each alert fires when the error budget burns 14.4x too fast (2% of a 30-day
+# budget in 1 hour), checked over 1h and 5m so it also clears quickly.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: shrinkr-slo
+spec:
+  groups:
+    - name: shrinkr-slo
+      rules:
+        - record: shrinkr:error_ratio:rate5m
+          expr: |
+            sum(rate(http_requests_total{namespace="shrinkr",route!~"/healthz|/metrics",status=~"5.."}[5m]))
+            / sum(rate(http_requests_total{namespace="shrinkr",route!~"/healthz|/metrics"}[5m]))
+        - record: shrinkr:error_ratio:rate1h
+          expr: |
+            sum(rate(http_requests_total{namespace="shrinkr",route!~"/healthz|/metrics",status=~"5.."}[1h]))
+            / sum(rate(http_requests_total{namespace="shrinkr",route!~"/healthz|/metrics"}[1h]))
+        - record: shrinkr:slow_redirect_ratio:rate5m
+          expr: |
+            1 - sum(rate(http_request_duration_seconds_bucket{namespace="shrinkr",route="/{code}",le="0.25"}[5m]))
+            / sum(rate(http_request_duration_seconds_count{namespace="shrinkr",route="/{code}"}[5m]))
+        - record: shrinkr:slow_redirect_ratio:rate1h
+          expr: |
+            1 - sum(rate(http_request_duration_seconds_bucket{namespace="shrinkr",route="/{code}",le="0.25"}[1h]))
+            / sum(rate(http_request_duration_seconds_count{namespace="shrinkr",route="/{code}"}[1h]))
+        - alert: ShrinkrErrorBudgetBurn
+          expr: shrinkr:error_ratio:rate1h > 14.4 * 0.01 and shrinkr:error_ratio:rate5m > 14.4 * 0.01
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: More than 14.4% of requests are failing
+            # what to do when it fires
+            runbook: >-
+              Check the error panels and app logs in Grafana. If it started with a release,
+              abort the rollout and revert the commit. If Postgres or Redis is down, check
+              its pod (kubectl -n shrinkr get pods) and its logs.
+        - alert: ShrinkrSlowRedirects
+          expr: shrinkr:slow_redirect_ratio:rate1h > 14.4 * 0.01 and shrinkr:slow_redirect_ratio:rate5m > 14.4 * 0.01
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: More than 14.4% of redirects take over 250ms
+            runbook: >-
+              Check the latency and memory panels. A slow Redis or Postgres slows every
+              redirect; a new release that is slower should be aborted and reverted.
+---
+# Grafana loads every ConfigMap with this label as a dashboard
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: shrinkr-dashboard
+  labels:
+    grafana_dashboard: "1"
+data:
+  shrinkr.json: |-
+{{ .Files.Get "dashboards/shrinkr.json" | indent 4 }}

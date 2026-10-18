@@ -53,8 +53,27 @@ app pods, then waits. In the Argo CD UI, open the `app` Rollout and use the menu
 ./toolbox/run.sh kind delete cluster --name shrinkr     # remove everything
 ```
 
-The database password is generated on the first setup and stored only in the `shrinkr-db`
-Secret in the cluster.
+## Monitoring
+
+Argo CD also installs kube-prometheus-stack (Application `monitoring`): Prometheus, Alertmanager
+and Grafana. Prometheus scrapes the app's `/metrics` (request count and latency per route).
+
+```bash
+./toolbox/grafana-ui.sh      # Grafana at http://localhost:3000, dashboard "shrinkr"
+```
+
+SLOs, defined in `charts/shrinkr/templates/monitoring.yaml`:
+
+| SLO | Alert |
+|---|---|
+| 99% of requests (excluding `/healthz` and `/metrics`) don't return a 5xx | `ShrinkrErrorBudgetBurn` |
+| 99% of redirects take under 250ms | `ShrinkrSlowRedirects` |
+
+Each alert fires when the error budget is burning 14.4 times too fast over both the last hour and
+the last 5 minutes.
+
+The database and Grafana passwords are generated on the first setup and stored only in Secrets
+in the cluster.
 
 ## CI
 

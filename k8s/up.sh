@@ -17,6 +17,11 @@ if ! kubectl -n shrinkr get secret shrinkr-db >/dev/null 2>&1; then
     --from-literal=DATABASE_URL="postgresql+psycopg://shrinkr:$password@postgres:5432/shrinkr"
 fi
 
+if ! kubectl -n monitoring get secret grafana-admin >/dev/null 2>&1; then
+  kubectl -n monitoring create secret generic grafana-admin \
+    --from-literal=admin-user=admin --from-literal=admin-password="$(openssl rand -hex 12)"
+fi
+
 kubectl apply -n argocd --server-side --force-conflicts \
   -f https://raw.githubusercontent.com/argoproj/argo-cd/v3.5.5/manifests/install.yaml
 kubectl wait --for condition=established crd/applications.argoproj.io

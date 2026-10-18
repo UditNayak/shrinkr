@@ -6,7 +6,7 @@ set -e
 ports=""
 if [ "$1" = "dashboard" ]; then
   # listen on all addresses so the port can be published to the Mac
-  set -- dashboard --address 0.0.0.0
+  set -- dashboard --address 0.0.0.0 -n shrinkr
   ports="-p 3100:3100"
 fi
 # runs as root to read the kubeconfig that the toolbox wrote
