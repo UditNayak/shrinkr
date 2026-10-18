@@ -46,6 +46,19 @@ spec:
               uid: loki
               type: loki
               url: http://loki.monitoring.svc:3100
+            - name: Tempo
+              uid: tempo
+              type: tempo
+              url: http://tempo.monitoring.svc:3200
+              jsonData:
+                # from a trace, jump to the logs of the pod that handled it
+                tracesToLogsV2:
+                  datasourceUid: loki
+                  spanStartTimeShift: -1m
+                  spanEndTimeShift: 1m
+                  tags:
+                    - key: k8s.pod.name
+                      value: pod
   destination:
     server: https://kubernetes.default.svc
     namespace: monitoring

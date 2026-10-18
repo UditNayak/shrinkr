@@ -58,6 +58,8 @@ app pods, then waits. In the Argo CD UI, open the `app` Rollout and use the menu
 Argo CD also installs kube-prometheus-stack (Application `monitoring`): Prometheus, Alertmanager
 and Grafana. Prometheus scrapes the app's `/metrics` (request count and latency per route). Logs from every
 pod are collected by Alloy into Loki (Applications `alloy` and `loki`) and searched in Grafana.
+The app sends traces with OpenTelemetry to Tempo (Application `tempo`): each request with its
+Redis and PostgreSQL calls.
 
 ```bash
 ./toolbox/grafana-ui.sh      # Grafana at http://localhost:3000, dashboard "shrinkr"

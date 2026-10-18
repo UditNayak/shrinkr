@@ -6,3 +6,8 @@ psycopg[binary]==3.3.6
 redis==8.1.0
 segno==1.6.6
 prometheus-client==0.26.0
+opentelemetry-sdk==1.45.1
+opentelemetry-exporter-otlp-proto-http==1.45.1
+opentelemetry-instrumentation-fastapi==0.66b1
+opentelemetry-instrumentation-psycopg==0.66b1
+opentelemetry-instrumentation-redis==0.66b1

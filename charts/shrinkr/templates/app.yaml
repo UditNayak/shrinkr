@@ -27,6 +27,17 @@ spec:
           env:
             - name: REDIS_URL
               value: {{ .Values.redisUrl }}
+            # traces go to Tempo, tagged with the pod name to find its logs
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: {{ .Values.tracingEndpoint }}
+            - name: OTEL_SERVICE_NAME
+              value: shrinkr-app
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: k8s.pod.name=$(POD_NAME)
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:

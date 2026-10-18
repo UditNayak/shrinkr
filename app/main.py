@@ -13,7 +13,7 @@ from sqlalchemy import and_, func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from . import cache, events, metrics, pages, qr
+from . import cache, events, metrics, pages, qr, tracing
 from .db import get_session
 from .models import DailyClicks, Link
 from .ratelimit import create_limit, manage_limit, qr_limit
@@ -28,6 +28,7 @@ MAX_CODE_ATTEMPTS = 5
 app = FastAPI(title="shrinkr")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 app.middleware("http")(metrics.record)
+tracing.setup(app)
 
 bearer = HTTPBearer(auto_error=False, description="The manage_token returned when the link was created")
 

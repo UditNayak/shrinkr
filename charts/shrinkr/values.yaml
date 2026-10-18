@@ -11,5 +11,6 @@ worker:
   replicas: 1
 
 redisUrl: redis://redis:6379/0
+tracingEndpoint: http://tempo.monitoring.svc:4318
 # Secret with DATABASE_URL, created outside the chart (k8s/up.sh)
 databaseSecret: shrinkr-db
