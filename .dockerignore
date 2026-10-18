@@ -1,0 +1,34 @@
+# Version control and repository-only files
+.git
+.gitignore
+.dockerignore
+README.md
+
+# Python caches and virtual environments
+**/__pycache__
+**/*.py[cod]
+.venv
+venv
+*.egg-info
+
+# Tests and test output: not needed to run the app
+tests
+pytest.ini
+requirements-dev.txt
+e2e
+.pytest_cache
+.coverage
+htmlcov
+.ruff_cache
+
+# Secrets and local data
+.env
+.env.*
+*.db
+*.sqlite3
+
+# OS and editor files
+**/.DS_Store
+.idea
+.vscode
+*.log

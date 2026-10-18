@@ -1,0 +1,31 @@
+# Python: compiled files, virtual environments, packaging leftovers
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+
+# Test and tool caches
+.pytest_cache/
+.coverage
+htmlcov/
+.ruff_cache/
+
+# Local databases (e.g. a SQLite file from running tests outside Docker)
+*.db
+*.sqlite3
+
+# Secrets and local settings: never commit these
+.env
+.env.*
+!.env.example
+e2e/
+
+# Logs
+*.log
+
+# OS and editor files
+.DS_Store
+.idea/
+.vscode/
+*.swp

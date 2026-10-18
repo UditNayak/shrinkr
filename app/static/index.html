@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>shrinkr · short links you control</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <a href="/" class="brand">shrinkr</a>
+    <a href="/docs" class="muted small" target="_blank" rel="noopener">API docs ↗</a>
+  </header>
+
+  <main>
+    <section class="hero">
+      <h1>Short links you control.</h1>
+      <p class="muted">Shorten a URL, share it anywhere, see how it's used. No account needed.</p>
+
+      <form id="create-form" class="card" novalidate>
+        <div class="row">
+          <label for="url" class="sr-only">Long URL</label>
+          <input id="url" type="url" placeholder="Paste a long URL…" autocomplete="off" required>
+          <button type="submit" class="primary">Shrink</button>
+        </div>
+        <details class="options">
+          <summary>More options</summary>
+          <div class="grid">
+            <label>Custom alias
+              <input id="alias" type="text" placeholder="e.g. my-notes" maxlength="32" autocomplete="off">
+            </label>
+            <label>Expires
+              <select id="expires">
+                <option value="">Never</option>
+                <option value="3600">In 1 hour</option>
+                <option value="86400">In 1 day</option>
+                <option value="604800">In 7 days</option>
+                <option value="2592000">In 30 days</option>
+              </select>
+            </label>
+            <label>Max clicks
+              <input id="max-clicks" type="number" min="1" placeholder="Unlimited">
+            </label>
+          </div>
+        </details>
+        <p id="create-error" class="message error" role="alert" hidden></p>
+      </form>
+    </section>
+
+    <section id="result" class="card result" hidden>
+      <div class="result-main">
+        <p class="label">Your short link</p>
+        <div class="row">
+          <a id="result-link" class="short-link" target="_blank" rel="noopener"></a>
+          <button type="button" id="result-copy" class="secondary">Copy</button>
+        </div>
+        <p class="muted small truncate">→ <span id="result-target"></span></p>
+
+        <div class="token-box">
+          <p class="small"><strong>Management token.</strong> It lets you see stats, edit and disable
+            this link. It's saved in this browser; copy it if you want to manage the link elsewhere.
+            It can't be shown again.</p>
+          <div class="row">
+            <code id="result-token"></code>
+            <button type="button" id="result-token-copy" class="secondary">Copy</button>
+          </div>
+        </div>
+        <button type="button" id="result-manage" class="secondary">Stats &amp; settings</button>
+      </div>
+      <figure class="qr">
+        <img id="result-qr" alt="" width="168" height="168">
+        <figcaption class="small">Download <a id="qr-svg" download>SVG</a> · <a id="qr-png" download>PNG</a></figcaption>
+      </figure>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <h2>Your links</h2>
+        <span class="muted small">Remembered in this browser only</span>
+      </div>
+      <p id="links-empty" class="muted">Links you create will appear here.</p>
+      <ul id="links-list" class="links"></ul>
+
+      <details class="options">
+        <summary>Add a link you created elsewhere</summary>
+        <form id="import-form" class="grid" novalidate>
+          <label>Code <input id="import-code" type="text" placeholder="e.g. my-notes" autocomplete="off" required></label>
+          <label>Management token <input id="import-token" type="text" autocomplete="off" required></label>
+          <button type="submit" class="secondary">Add</button>
+        </form>
+        <p id="import-error" class="message error" role="alert" hidden></p>
+      </details>
+    </section>
+  </main>
+
+  <dialog id="manage" aria-labelledby="manage-title">
+    <form method="dialog" class="dialog-close">
+      <button aria-label="Close">×</button>
+    </form>
+    <h2 id="manage-title" class="truncate"></h2>
+    <p id="manage-target" class="muted small truncate"></p>
+    <p id="manage-error" class="message error" role="alert" hidden></p>
+
+    <p class="link-facts small">
+      <span id="stat-status" class="badge on">–</span>
+      <span id="stat-expires" class="muted"></span>
+      <span id="stat-limit" class="muted"></span>
+    </p>
+
+    <div class="tiles">
+      <div class="tile"><span class="label">All time</span><strong id="stat-total">–</strong></div>
+      <div class="tile">
+        <span class="label">Last 7 days</span><strong id="stat-week">–</strong>
+        <span id="stat-week-delta" class="delta small"></span>
+      </div>
+      <div class="tile"><span class="label">Today</span><strong id="stat-today">–</strong></div>
+    </div>
+
+    <div class="chart-head">
+      <h3>Clicks per day</h3>
+      <div class="range" role="group" aria-label="Time range">
+        <button type="button" data-days="7" aria-pressed="false">7 days</button>
+        <button type="button" data-days="30" aria-pressed="true">30 days</button>
+        <button type="button" data-days="90" aria-pressed="false">90 days</button>
+      </div>
+    </div>
+    <div class="chart-wrap">
+      <div id="chart" class="chart"></div>
+      <p id="chart-empty" class="chart-empty muted" hidden>No clicks in this period yet</p>
+      <div id="chart-tip" class="chart-tip" role="status" hidden></div>
+    </div>
+    <details class="options">
+      <summary>Show as table</summary>
+      <table class="day-table">
+        <thead><tr><th scope="col">Day (UTC)</th><th scope="col">Clicks</th></tr></thead>
+        <tbody id="day-rows"></tbody>
+      </table>
+    </details>
+    <p class="muted small">Days are UTC. New clicks can take a few seconds to show up.</p>
+
+    <h3>Settings</h3>
+    <form id="edit-form" class="grid" novalidate>
+      <label class="wide">Target URL <input id="edit-url" type="url" required></label>
+      <label>Expiry
+        <select id="edit-expires">
+          <option value="">Keep as it is</option>
+          <option value="never">Never expires</option>
+          <option value="3600">1 hour from now</option>
+          <option value="86400">1 day from now</option>
+          <option value="604800">7 days from now</option>
+          <option value="2592000">30 days from now</option>
+        </select>
+      </label>
+      <label>Max clicks <input id="edit-max-clicks" type="number" min="1" placeholder="Unlimited"></label>
+      <button type="submit" class="primary">Save changes</button>
+    </form>
+    <p id="manage-ok" class="message ok" role="status" hidden></p>
+
+    <div class="danger-zone">
+      <button type="button" id="toggle-link" class="secondary"></button>
+      <button type="button" id="delete-link" class="danger">Delete link</button>
+      <button type="button" id="forget-link" class="text-button">Remove from this browser</button>
+    </div>
+  </dialog>
+</body>
+</html>

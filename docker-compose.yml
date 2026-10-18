@@ -1,0 +1,66 @@
+services:
+  db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: shrinkr
+      POSTGRES_PASSWORD: shrinkr
+      POSTGRES_DB: shrinkr
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "shrinkr"]
+      interval: 2s
+      retries: 15
+
+  redis:
+    image: redis:8-alpine
+    # Append-only file: every write is logged to disk (flushed each second), so queued
+    # click events survive a Redis restart.
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      retries: 15
+
+  migrate:
+    build: .
+    image: shrinkr-app
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://shrinkr:shrinkr@db:5432/shrinkr
+    depends_on:
+      db:
+        condition: service_healthy
+
+  app:
+    build: .
+    image: shrinkr-app
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+psycopg://shrinkr:shrinkr@db:5432/shrinkr
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+  worker:
+    build: .
+    image: shrinkr-app
+    command: ["python", "-m", "app.worker"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://shrinkr:shrinkr@db:5432/shrinkr
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  redisdata:
