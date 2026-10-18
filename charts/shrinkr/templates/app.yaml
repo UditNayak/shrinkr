@@ -1,5 +1,6 @@
 # a Rollout is a Deployment with a canary: Argo Rollouts moves 1 of 2 pods to the
-# new version first and waits for a promote (or abort) before replacing the other
+# new version, checks its error rate in Prometheus for 2 minutes, then replaces the
+# other pod, or rolls back if the canary fails the check
 apiVersion: argoproj.io/v1alpha1
 kind: Rollout
 metadata:
@@ -10,7 +11,13 @@ spec:
     canary:
       steps:
         - setWeight: 50
-        - pause: {}
+        - analysis:
+            templates:
+              - templateName: canary-errors
+            args:
+              - name: canary-hash
+                valueFrom:
+                  podTemplateHashValue: Latest
   selector:
     matchLabels:
       app: shrinkr

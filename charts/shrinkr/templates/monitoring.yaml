@@ -7,12 +7,16 @@ spec:
   selector:
     matchLabels:
       app: shrinkr
+  # keep the Rollouts revision label on the metrics, so the canary pod can be told apart
+  podTargetLabels:
+    - rollouts-pod-template-hash
   endpoints:
     - port: http
       path: /metrics
       interval: 15s
 ---
 # SLOs: 99% of requests succeed, 99% of redirects take under 250ms.
+# "or vector(0)": with no 5xx at all there is no series to sum, so the ratio would be empty, not 0.
 # Each alert fires when the error budget burns 14.4x too fast (2% of a 30-day
 # budget in 1 hour), checked over 1h and 5m so it also clears quickly.
 apiVersion: monitoring.coreos.com/v1
@@ -25,11 +29,11 @@ spec:
       rules:
         - record: shrinkr:error_ratio:rate5m
           expr: |
-            sum(rate(http_requests_total{namespace="shrinkr",route!~"/healthz|/metrics",status=~"5.."}[5m]))
+            (sum(rate(http_requests_total{namespace="shrinkr",route!~"/healthz|/metrics",status=~"5.."}[5m])) or vector(0))
             / sum(rate(http_requests_total{namespace="shrinkr",route!~"/healthz|/metrics"}[5m]))
         - record: shrinkr:error_ratio:rate1h
           expr: |
-            sum(rate(http_requests_total{namespace="shrinkr",route!~"/healthz|/metrics",status=~"5.."}[1h]))
+            (sum(rate(http_requests_total{namespace="shrinkr",route!~"/healthz|/metrics",status=~"5.."}[1h])) or vector(0))
             / sum(rate(http_requests_total{namespace="shrinkr",route!~"/healthz|/metrics"}[1h]))
         - record: shrinkr:slow_redirect_ratio:rate5m
           expr: |

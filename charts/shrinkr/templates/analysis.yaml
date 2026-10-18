@@ -1,0 +1,26 @@
+# Run by the Rollout during a canary: every 30s for 2 minutes, the share of 5xx
+# responses from the canary pod must stay under 5%. One failed check aborts the release.
+# 5%, not the 1% SLO: one pod over 2 minutes is a small sample.
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: canary-errors
+spec:
+  args:
+    - name: canary-hash
+  metrics:
+    - name: error-ratio
+      initialDelay: 30s
+      interval: 30s
+      count: 4
+      failureLimit: 0
+      successCondition: result[0] < 0.05
+      provider:
+        prometheus:
+          address: http://monitoring-kube-prometheus-prometheus.monitoring.svc:9090
+          # no requests yet counts as 0, not as a failure
+          query: |
+            (
+              (sum(rate(http_requests_total{namespace="shrinkr",rollouts_pod_template_hash="{{`{{args.canary-hash}}`}}",route!~"/healthz|/metrics",status=~"5.."}[1m])) or vector(0))
+              / (sum(rate(http_requests_total{namespace="shrinkr",rollouts_pod_template_hash="{{`{{args.canary-hash}}`}}",route!~"/healthz|/metrics"}[1m])) > 0)
+            ) or vector(0)

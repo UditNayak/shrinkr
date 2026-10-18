@@ -38,12 +38,14 @@ The app is at http://localhost.
 | `charts/shrinkr/` | App, worker and a migration Job run before each sync (Application `shrinkr`) |
 
 The app is an Argo Rollouts `Rollout` with a canary: a new version first replaces 1 of the 2
-app pods, then waits. In the Argo CD UI, open the `app` Rollout and use the menu to run
-`resume` (replace the other pod too) or `abort` (go back to the old version).
+app pods, and an analysis (`charts/shrinkr/templates/analysis.yaml`) checks that pod's share of
+5xx responses in Prometheus every 30s for 2 minutes. Under 5% promotes the release to both pods;
+otherwise it is aborted and the old version keeps serving. A release with no traffic during
+the check passes, since there are no errors to see.
 
 ```bash
 ./toolbox/rollouts.sh get rollout app -n shrinkr --watch     # canary progress in the terminal
-./toolbox/rollouts.sh promote app -n shrinkr                 # or: abort app -n shrinkr
+./toolbox/rollouts.sh abort app -n shrinkr                   # stop a release by hand
 ./toolbox/rollouts.sh dashboard                              # web UI at http://localhost:3100
 ```
 
