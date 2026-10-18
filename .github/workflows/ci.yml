@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main, devops-improvements]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    # a throwaway database, only for this job
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: shrinkr
+          POSTGRES_PASSWORD: shrinkr
+          POSTGRES_DB: shrinkr
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U shrinkr"
+          --health-interval 2s
+          --health-retries 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+          cache: pip
+      - run: pip install -r requirements.txt -r requirements-dev.txt
+      # same tests as locally, but on PostgreSQL instead of SQLite
+      - run: pytest
+        env:
+          TEST_DATABASE_URL: postgresql+psycopg://shrinkr:shrinkr@localhost:5432/shrinkr
+      - uses: azure/setup-helm@v5
+        with:
+          version: v4.3.1
+      - run: helm lint charts/shrinkr
+
+  build:
+    needs: test
+    # pull requests only get the checks; images are built for pushed commits
+    if: github.event_name == 'push'
+    # arm64, like the kind cluster on Apple Silicon
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: true
+          # tagged with the commit, so every image traces back to its code
+          tags: ghcr.io/uditnayak/shrinkr:${{ github.sha }}
+          labels: org.opencontainers.image.revision=${{ github.sha }}

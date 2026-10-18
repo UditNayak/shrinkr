@@ -45,6 +45,15 @@ helm -n shrinkr history shrinkr          # releases
 helm -n shrinkr rollback shrinkr <rev>   # go back to a release
 ```
 
+## CI
+
+`.github/workflows/ci.yml` runs on every push to `main` and `devops-improvements` and on pull
+requests:
+
+- `test`: the test suite against PostgreSQL, and `helm lint`
+- `build` (pushes only, after `test` passes): builds the image for arm64 and pushes it to
+  `ghcr.io/uditnayak/shrinkr:<commit sha>`
+
 ## Services
 
 | Service | Purpose |
