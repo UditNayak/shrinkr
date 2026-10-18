@@ -2,9 +2,8 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: app
-  namespace: shrinkr
 spec:
-  replicas: 2
+  replicas: {{ .Values.app.replicas }}
   selector:
     matchLabels:
       app: shrinkr
@@ -15,16 +14,16 @@ spec:
     spec:
       containers:
         - name: app
-          image: shrinkr:dev
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           ports:
             - containerPort: 8000
           env:
             - name: REDIS_URL
-              value: redis://redis:6379/0
+              value: {{ .Values.redisUrl }}
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
-                  name: shrinkr-db
+                  name: {{ .Values.databaseSecret }}
                   key: DATABASE_URL
           # wait before stopping, so the pod is out of the Service before uvicorn exits
           lifecycle:
@@ -52,7 +51,6 @@ apiVersion: v1
 kind: Service
 metadata:
   name: app
-  namespace: shrinkr
 spec:
   type: NodePort
   selector:
@@ -60,4 +58,4 @@ spec:
   ports:
     - port: 80
       targetPort: 8000
-      nodePort: 30080
+      nodePort: {{ .Values.app.nodePort }}

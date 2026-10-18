@@ -2,9 +2,8 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: worker
-  namespace: shrinkr
 spec:
-  replicas: 1
+  replicas: {{ .Values.worker.replicas }}
   selector:
     matchLabels:
       app: worker
@@ -15,15 +14,15 @@ spec:
     spec:
       containers:
         - name: worker
-          image: shrinkr:dev
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           command: ["python", "-m", "app.worker"]
           env:
             - name: REDIS_URL
-              value: redis://redis:6379/0
+              value: {{ .Values.redisUrl }}
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
-                  name: shrinkr-db
+                  name: {{ .Values.databaseSecret }}
                   key: DATABASE_URL
           resources:
             requests:

@@ -1,0 +1,4 @@
+apiVersion: v2
+name: shrinkr
+description: shrinkr URL shortener (app, worker and migrations)
+version: 0.1.0

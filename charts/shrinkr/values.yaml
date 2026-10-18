@@ -1,0 +1,14 @@
+image:
+  repository: shrinkr
+  tag: dev
+
+app:
+  replicas: 2
+  nodePort: 30080
+
+worker:
+  replicas: 1
+
+redisUrl: redis://redis:6379/0
+# Secret with DATABASE_URL, created outside the chart (k8s/up.sh)
+databaseSecret: shrinkr-db

@@ -22,25 +22,28 @@ The app is at http://localhost:8000 and the API docs at http://localhost:8000/do
 
 ## Running on Kubernetes (kind)
 
-The tools (kind, kubectl) run in a container, so only Docker is needed:
+The tools (kind, kubectl, helm) run in a container, so only Docker is needed:
 
 ```bash
 ./toolbox/run.sh k8s/up.sh       # create the cluster if needed, build and deploy
 ```
 
 The app is then at http://localhost. Run `./toolbox/run.sh` without arguments for a shell with
-`kubectl`, e.g. `kubectl -n shrinkr get pods`. To remove the cluster:
+the tools, e.g. `kubectl -n shrinkr get pods`. To remove the cluster:
 `./toolbox/run.sh kind delete cluster --name shrinkr`.
 
-| Manifest | What it runs |
-|---|---|
-| `k8s/postgres.yaml`, `k8s/redis.yaml` | StatefulSets with a persistent volume each |
-| `k8s/migrate.yaml` | Job applying migrations, before the app starts |
-| `k8s/app.yaml` | Deployment (2 replicas) and a NodePort Service on port 80 |
-| `k8s/worker.yaml` | Deployment counting clicks |
+- `k8s/postgres.yaml`, `k8s/redis.yaml`: StatefulSets with a persistent volume each.
+- `charts/shrinkr`: Helm chart with the app (Deployment and NodePort Service on port 80), the
+  worker, and a migration Job that runs as a pre-install/pre-upgrade hook.
+- The database password is generated on the first deploy and stored only in the `shrinkr-db`
+  Secret in the cluster.
 
-The database password is generated on the first deploy and stored only in the `shrinkr-db`
-Secret in the cluster.
+Each deploy builds an image with a new tag and upgrades the Helm release:
+
+```bash
+helm -n shrinkr history shrinkr          # releases
+helm -n shrinkr rollback shrinkr <rev>   # go back to a release
+```
 
 ## Services
 

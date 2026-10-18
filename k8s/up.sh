@@ -7,8 +7,10 @@ kind get clusters | grep -q shrinkr || kind create cluster --config k8s/kind-clu
 # use the cluster's internal address, reachable from the toolbox
 kind export kubeconfig --name shrinkr --internal
 
-docker build -t shrinkr:dev .
-kind load docker-image shrinkr:dev --name shrinkr
+# a new tag for every build, so Kubernetes sees a change and rolls out the new image
+tag=$(date +%Y%m%d%H%M%S)
+docker build -t shrinkr:$tag .
+kind load docker-image shrinkr:$tag --name shrinkr
 
 kubectl apply -f k8s/namespace.yaml
 
@@ -23,14 +25,7 @@ fi
 kubectl apply -f k8s/postgres.yaml -f k8s/redis.yaml
 kubectl -n shrinkr rollout status statefulset/postgres
 
-# a finished Job can't be re-run, so replace it and wait for it
-kubectl -n shrinkr delete job migrate --ignore-not-found
-kubectl apply -f k8s/migrate.yaml
-kubectl -n shrinkr wait --for=condition=complete job/migrate --timeout=120s
-
-kubectl apply -f k8s/app.yaml -f k8s/worker.yaml
-# the tag is always shrinkr:dev, so restart to pick up the new image
-kubectl -n shrinkr rollout restart deployment/app deployment/worker
-kubectl -n shrinkr rollout status deployment/app
+# migrations run first (a Helm hook); --wait returns when the new pods are ready
+helm upgrade --install shrinkr charts/shrinkr -n shrinkr --set image.tag=$tag --wait
 
 echo "shrinkr is running at http://localhost"
