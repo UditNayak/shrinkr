@@ -51,7 +51,7 @@ the check passes, since there are no errors to see.
 
 ```bash
 ./toolbox/run.sh kubectl -n argocd get applications     # sync and health status
-./toolbox/argocd-ui.sh                                  # web UI at https://localhost:8080
+./toolbox/ui.sh                                         # UI addresses and admin passwords
 ./toolbox/run.sh kind delete cluster --name shrinkr     # remove everything
 ```
 
@@ -64,7 +64,7 @@ The app sends traces with OpenTelemetry to Tempo (Application `tempo`): each req
 Redis and PostgreSQL calls.
 
 ```bash
-./toolbox/grafana-ui.sh      # Grafana at http://localhost:3000, dashboard "shrinkr"
+./toolbox/ui.sh              # Grafana at http://localhost:3000, dashboard "shrinkr"
 ```
 
 SLOs, defined in `charts/shrinkr/templates/monitoring.yaml`:
@@ -89,7 +89,7 @@ in the cluster.
 | CI permissions | The workflow token can only write to this repository and its packages; no other credentials are stored |
 | Network | NetworkPolicies let only the app, worker and migration reach PostgreSQL, and only the app and worker reach Redis |
 | Pods | App, worker and migration: no Kubernetes API token, no privilege escalation, all Linux capabilities dropped |
-| Exposure | Only the app is published (port 80). Argo CD, Grafana and the Rollouts dashboard are reached through port-forwards |
+| Exposure | The app is published on port 80. The Argo CD (8080) and Grafana (3000) UIs listen only on 127.0.0.1, so other machines can't reach them |
 
 Known gaps, accepted for a local project:
 

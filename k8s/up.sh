@@ -25,6 +25,8 @@ fi
 kubectl apply -n argocd --server-side --force-conflicts \
   -f https://raw.githubusercontent.com/argoproj/argo-cd/v3.5.5/manifests/install.yaml
 kubectl wait --for condition=established crd/applications.argoproj.io
+# the UI on a fixed NodePort, mapped to https://localhost:8080 by kind-cluster.yaml
+kubectl -n argocd patch svc argocd-server -p '{"spec":{"type":"NodePort","ports":[{"port":443,"nodePort":30443}]}}'
 
 # Argo Rollouts runs the canary for the app; installed before shrinkr uses a Rollout
 kubectl apply -n argo-rollouts --server-side --force-conflicts \

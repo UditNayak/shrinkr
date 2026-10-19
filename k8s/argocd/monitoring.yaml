@@ -35,6 +35,10 @@ spec:
               limits:
                 memory: 1Gi
         grafana:
+          # http://localhost:3000 through kind-cluster.yaml
+          service:
+            type: NodePort
+            nodePort: 30300
           # random password created by k8s/up.sh, not stored in git
           admin:
             existingSecret: grafana-admin
