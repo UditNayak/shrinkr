@@ -1,0 +1,32 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: migrate
+  annotations:
+    # runs before every install and upgrade; Helm waits for it to finish
+    "helm.sh/hook": pre-install,pre-upgrade
+    # the previous run's Job is deleted when a new one is created
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  template:
+    metadata:
+      # lets it through the database NetworkPolicy
+      labels:
+        app: migrate
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      containers:
+        - name: migrate
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          command: ["alembic", "upgrade", "head"]
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.databaseSecret }}
+                  key: DATABASE_URL

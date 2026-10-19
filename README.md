@@ -20,6 +20,94 @@ The app is at http://localhost:8000 and the API docs at http://localhost:8000/do
 | Stop and delete data | `docker compose down -v` |
 | Delete expired links | `docker compose run --rm app python -m app.cleanup` |
 
+## Running on Kubernetes (kind + Argo CD)
+
+The tools (kind, kubectl, helm) run in a container, so only Docker is needed. One-time setup:
+
+```bash
+./toolbox/run.sh k8s/up.sh       # cluster, database secret, Argo CD, Argo Rollouts, Applications
+```
+
+From then on Argo CD deploys from git: a push to `devops-improvements` is tested and built
+by CI, CI commits the new image tag to `charts/shrinkr/values.yaml`, and Argo CD syncs it.
+The app is at http://localhost.
+
+| Path | What Argo CD deploys from it |
+|---|---|
+| `k8s/databases/` | PostgreSQL and Redis StatefulSets (Application `databases`) |
+| `charts/shrinkr/` | App, worker and a migration Job run before each sync (Application `shrinkr`) |
+
+The app is an Argo Rollouts `Rollout` with a canary: a new version first replaces 1 of the 2
+app pods, and an analysis (`charts/shrinkr/templates/analysis.yaml`) checks that pod's share of
+5xx responses in Prometheus every 30s for 2 minutes. Under 5% promotes the release to both pods;
+otherwise it is aborted and the old version keeps serving. A release with no traffic during
+the check passes, since there are no errors to see.
+
+```bash
+./toolbox/rollouts.sh get rollout app -n shrinkr --watch     # canary progress in the terminal
+./toolbox/rollouts.sh abort app -n shrinkr                   # stop a release by hand
+# dashboard with the steps and analysis results: http://localhost:3100 (started by k8s/up.sh)
+```
+
+```bash
+./toolbox/run.sh kubectl -n argocd get applications     # sync and health status
+./toolbox/ui.sh                                         # UI addresses and admin passwords
+./toolbox/run.sh kind delete cluster --name shrinkr     # remove everything
+```
+
+## Monitoring
+
+Argo CD also installs kube-prometheus-stack (Application `monitoring`): Prometheus, Alertmanager
+and Grafana. Prometheus scrapes the app's `/metrics` (request count and latency per route). Logs from every
+pod are collected by Alloy into Loki (Applications `alloy` and `loki`) and searched in Grafana.
+The app sends traces with OpenTelemetry to Tempo (Application `tempo`): each request with its
+Redis and PostgreSQL calls.
+
+```bash
+./toolbox/ui.sh              # Grafana at http://localhost:3000, dashboard "shrinkr"
+```
+
+SLOs, defined in `charts/shrinkr/templates/monitoring.yaml`:
+
+| SLO | Alert |
+|---|---|
+| 99% of requests (excluding `/healthz` and `/metrics`) don't return a 5xx | `ShrinkrErrorBudgetBurn` |
+| 99% of redirects take under 250ms | `ShrinkrSlowRedirects` |
+
+Each alert fires when the error budget is burning 14.4 times too fast over both the last hour and
+the last 5 minutes.
+
+The database and Grafana passwords are generated on the first setup and stored only in Secrets
+in the cluster.
+
+## Security
+
+| Area | What is in place |
+|---|---|
+| Secrets | Database and Grafana passwords are random, created by `k8s/up.sh` in the cluster and never in git. CI scans the whole git history with gitleaks |
+| Image | CI scans every image with Trivy; a fixable HIGH or CRITICAL vulnerability stops the deployment. pip is removed from the image |
+| CI permissions | The workflow token can only write to this repository and its packages; no other credentials are stored |
+| Network | NetworkPolicies let only the app, worker and migration reach PostgreSQL, and only the app and worker reach Redis |
+| Pods | App, worker and migration: no Kubernetes API token, no privilege escalation, all Linux capabilities dropped |
+| Exposure | The app is published on port 80. The Argo CD (8080) and Grafana (3000) UIs listen only on 127.0.0.1, so other machines can't reach them |
+
+Known gaps, accepted for a local project:
+
+- The containers run as root. Everything else above limits what root can do in the container.
+- `/metrics` is public on port 80. In production it would be on a separate internal port.
+- Secrets are created by a script, not stored encrypted in git (Sealed Secrets or External Secrets would do that).
+- Argo CD uses the initial admin password, and Grafana a single admin account.
+
+## CI
+
+`.github/workflows/ci.yml` runs on every push to `main` and `devops-improvements` and on pull
+requests:
+
+- `test`: a secret scan of the git history, the test suite against PostgreSQL, and `helm lint`
+- `build` (pushes only, after `test` passes): builds the image for arm64, pushes it to
+  `ghcr.io/uditnayak/shrinkr:<commit sha>`, scans it for vulnerabilities, and commits that tag to `charts/shrinkr/values.yaml`
+  (with `[skip ci]`), which Argo CD then deploys
+
 ## Services
 
 | Service | Purpose |

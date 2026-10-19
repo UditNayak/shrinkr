@@ -7,12 +7,13 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, RedirectResponse, Response
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.staticfiles import StaticFiles
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from pydantic import HttpUrl
 from sqlalchemy import and_, func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from . import cache, events, pages, qr
+from . import cache, events, metrics, pages, qr, tracing
 from .db import get_session
 from .models import DailyClicks, Link
 from .ratelimit import create_limit, manage_limit, qr_limit
@@ -26,6 +27,8 @@ MAX_CODE_ATTEMPTS = 5
 
 app = FastAPI(title="shrinkr")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+app.middleware("http")(metrics.record)
+tracing.setup(app)
 
 bearer = HTTPBearer(auto_error=False, description="The manage_token returned when the link was created")
 
@@ -92,6 +95,19 @@ def owned_link(
     if link.token_hash is None or not token_matches(credentials.credentials, link.token_hash):
         raise HTTPException(status_code=403, detail="Invalid management token for this link")
     return link
+
+
+# Used for both probes. It doesn't check Postgres or Redis: they're shared by every pod,
+# so failing on them would take all pods out of service at once.
+@app.get("/healthz", include_in_schema=False)
+def healthz():
+    return {"status": "ok"}
+
+
+# Scraped by Prometheus
+@app.get("/metrics", include_in_schema=False)
+def prometheus_metrics():
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
 @app.get("/", include_in_schema=False)

@@ -1,0 +1,75 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: monitoring
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://prometheus-community.github.io/helm-charts
+    chart: kube-prometheus-stack
+    targetRevision: 92.10.1
+    helm:
+      valuesObject:
+        # kind runs these on localhost inside the node, so they can't be scraped
+        kubeControllerManager:
+          enabled: false
+        kubeScheduler:
+          enabled: false
+        kubeEtcd:
+          enabled: false
+        kubeProxy:
+          enabled: false
+        # container CPU and memory come from the kubelet; node details aren't needed here
+        nodeExporter:
+          enabled: false
+        prometheus:
+          prometheusSpec:
+            # pick up ServiceMonitors and rules from any namespace, not only this chart's
+            serviceMonitorSelectorNilUsesHelmValues: false
+            ruleSelectorNilUsesHelmValues: false
+            retention: 3d
+            resources:
+              requests:
+                memory: 256Mi
+              limits:
+                memory: 1Gi
+        grafana:
+          # http://localhost:3000 through kind-cluster.yaml
+          service:
+            type: NodePort
+            nodePort: 30300
+          # random password created by k8s/up.sh, not stored in git
+          admin:
+            existingSecret: grafana-admin
+          sidecar:
+            dashboards:
+              searchNamespace: ALL
+          additionalDataSources:
+            - name: Loki
+              uid: loki
+              type: loki
+              url: http://loki.monitoring.svc:3100
+            - name: Tempo
+              uid: tempo
+              type: tempo
+              url: http://tempo.monitoring.svc:3200
+              jsonData:
+                # from a trace, jump to the logs of the pod that handled it
+                tracesToLogsV2:
+                  datasourceUid: loki
+                  spanStartTimeShift: -1m
+                  spanEndTimeShift: 1m
+                  tags:
+                    - key: k8s.pod.name
+                      value: pod
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    # its CRDs are too large for a normal apply
+    syncOptions:
+      - ServerSideApply=true

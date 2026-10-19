@@ -1,0 +1,96 @@
+# a Rollout is a Deployment with a canary: Argo Rollouts moves 1 of 2 pods to the
+# new version, checks its error rate in Prometheus for 2 minutes, then replaces the
+# other pod, or rolls back if the canary fails the check
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: app
+spec:
+  replicas: {{ .Values.app.replicas }}
+  strategy:
+    canary:
+      steps:
+        - setWeight: 50
+        - analysis:
+            templates:
+              - templateName: canary-errors
+            args:
+              - name: canary-hash
+                valueFrom:
+                  podTemplateHashValue: Latest
+  selector:
+    matchLabels:
+      app: shrinkr
+  template:
+    metadata:
+      labels:
+        app: shrinkr
+    spec:
+      # the app never calls the Kubernetes API, so it gets no token for it
+      automountServiceAccountToken: false
+      containers:
+        - name: app
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          # no extra privileges, even though it runs as root (see README)
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          ports:
+            - containerPort: 8000
+          env:
+            - name: REDIS_URL
+              value: {{ .Values.redisUrl }}
+            # traces go to Tempo, tagged with the pod name to find its logs
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: {{ .Values.tracingEndpoint }}
+            - name: OTEL_SERVICE_NAME
+              value: shrinkr-app
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: k8s.pod.name=$(POD_NAME)
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.databaseSecret }}
+                  key: DATABASE_URL
+          # wait before stopping, so the pod is out of the Service before uvicorn exits
+          lifecycle:
+            preStop:
+              sleep:
+                seconds: 5
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8000
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8000
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 50m
+              memory: 96Mi
+            limits:
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: app
+  labels:
+    app: shrinkr
+spec:
+  type: NodePort
+  selector:
+    app: shrinkr
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8000
+      nodePort: {{ .Values.app.nodePort }}

@@ -1,0 +1,23 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: shrinkr
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/UditNayak/shrinkr.git
+    targetRevision: devops-improvements
+    path: charts/shrinkr
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: shrinkr
+  # sync automatically when git changes; prune = delete what was removed from git,
+  # selfHeal = undo manual changes in the cluster
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    # on a new cluster the monitoring CRDs may not exist yet, so retry until they do
+    retry:
+      limit: 10

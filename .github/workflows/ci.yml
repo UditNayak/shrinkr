@@ -1,0 +1,86 @@
+name: CI
+
+on:
+  push:
+    branches: [main, devops-improvements]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    # a throwaway database, only for this job
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: shrinkr
+          POSTGRES_PASSWORD: shrinkr
+          POSTGRES_DB: shrinkr
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U shrinkr"
+          --health-interval 2s
+          --health-retries 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # full history, so the secret scan sees every commit, not only the last
+          fetch-depth: 0
+      # fails if a password, token or key was ever committed
+      - name: Scan for secrets
+        run: docker run --rm --user "$(id -u):$(id -g)" -v "$PWD":/repo ghcr.io/gitleaks/gitleaks:v8.30.1 git /repo --no-banner
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+          cache: pip
+      - run: pip install -r requirements.txt -r requirements-dev.txt
+      # same tests as locally, but on PostgreSQL instead of SQLite
+      - run: pytest
+        env:
+          TEST_DATABASE_URL: postgresql+psycopg://shrinkr:shrinkr@localhost:5432/shrinkr
+      - uses: azure/setup-helm@v5
+        with:
+          version: v4.3.1
+      - run: helm lint charts/shrinkr
+
+  build:
+    needs: test
+    # pull requests only get the checks; images are built for pushed commits
+    if: github.event_name == 'push'
+    # arm64, like the kind cluster on Apple Silicon
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: true
+          # tagged with the commit, so every image traces back to its code
+          tags: ghcr.io/uditnayak/shrinkr:${{ github.sha }}
+          labels: org.opencontainers.image.revision=${{ github.sha }}
+      # an image with a known HIGH or CRITICAL vulnerability that has a fix is pushed
+      # but never deployed: this fails before the tag is committed
+      - name: Scan image
+        run: >-
+          docker run --rm aquasec/trivy:0.75.0 image --quiet --exit-code 1
+          --severity HIGH,CRITICAL --ignore-unfixed ghcr.io/uditnayak/shrinkr:${{ github.sha }}
+      # Argo CD deploys whatever git says, so point the chart at the new image.
+      # [skip ci] stops this commit from starting the pipeline again.
+      - name: Update image tag
+        run: |
+          sed -i "s/^  tag: .*/  tag: ${GITHUB_SHA}/" charts/shrinkr/values.yaml
+          # nothing to do if this commit is already deployed (e.g. a re-run)
+          git diff --quiet && exit 0
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "Deploy ${GITHUB_SHA::7} [skip ci]"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
