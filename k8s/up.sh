@@ -36,4 +36,10 @@ kubectl wait --for condition=established crd/rollouts.argoproj.io
 # the Applications tell Argo CD what to deploy from the repository
 kubectl apply -f k8s/argocd/
 
+# Rollouts dashboard at http://localhost:3100; Docker restarts it whenever Docker starts
+docker rm -f shrinkr-rollouts-dashboard >/dev/null 2>&1 || true
+docker run -d --name shrinkr-rollouts-dashboard --restart unless-stopped --user 0 --network kind \
+  -p 127.0.0.1:3100:3100 -v shrinkr-kube:/root/.kube -e KUBECONFIG=/root/.kube/config \
+  quay.io/argoproj/kubectl-argo-rollouts:v1.10.1 dashboard --address 0.0.0.0 -n shrinkr >/dev/null
+
 echo "Argo CD is deploying shrinkr. Check with: kubectl -n argocd get applications"

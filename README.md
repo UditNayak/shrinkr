@@ -46,7 +46,7 @@ the check passes, since there are no errors to see.
 ```bash
 ./toolbox/rollouts.sh get rollout app -n shrinkr --watch     # canary progress in the terminal
 ./toolbox/rollouts.sh abort app -n shrinkr                   # stop a release by hand
-./toolbox/rollouts.sh dashboard                              # web UI at http://localhost:3100
+# dashboard with the steps and analysis results: http://localhost:3100 (started by k8s/up.sh)
 ```
 
 ```bash
